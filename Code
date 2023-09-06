@@ -1,0 +1,139 @@
+---
+title: "STUDY 3 - ELECTION STUDY"
+author: "Anonymous"
+date: "2023-07-31"
+output: html_document
+---
+## Load packages
+```{r}
+library(tidyverse)
+library(httr)
+library(haven)
+library(ggplot2)
+library(ggpubr)
+library(PerformanceAnalytics)
+library(psych)
+```
+
+## Power analysis for path analysis (3 groups)
+## Calculating DF using df = m*(m+1) / 2 - 2*m - X * (X - 1)/2 - g - b for different portions of model
+## fluctuate between 16 - 44
+## Preacher, K. J., & Coffman, D. L. (2006, May). Computing power and minimum sample size for RMSEA
+```{r}
+#Computation of minimum sample size for test of fit
+
+rmsea0 <- 0.02 #null hypothesized RMSEA
+rmseaa <- 0.08 #alternative hypothesized RMSEA
+d <- 16 #degrees of freedom
+alpha <- 0.05 #alpha level
+desired <- 0.8 #desired power
+
+#initialize values
+pow <- 0.0
+n <- 0
+#begin loop for finding initial level of n
+while (pow<desired) {
+  n <- n+100
+  ncp0 <- (n-1)*d*rmsea0^2
+  ncpa <- (n-1)*d*rmseaa^2
+  #compute power
+  if(rmsea0<rmseaa) {
+      cval <- qchisq(alpha,d,ncp=ncp0,lower.tail=F)
+      pow <- pchisq(cval,d,ncp=ncpa,lower.tail=F)
+  }
+  else {
+      cval <- qchisq(1-alpha,d,ncp=ncp0,lower.tail=F)
+      pow <- 1-pchisq(cval,d,ncp=ncpa,lower.tail=F)
+  }
+}
+
+#begin loop for interval halving
+foo <- -1
+newn <- n
+interval <- 200
+powdiff <- pow - desired
+while (powdiff>.001) {
+  interval <- interval*.5
+  newn <- newn + foo*interval*.5
+  ncp0 <- (newn-1)*d*rmsea0^2
+  ncpa <- (newn-1)*d*rmseaa^2
+  #compute power
+  if(rmsea0<rmseaa) {
+      cval <- qchisq(alpha,d,ncp=ncp0,lower.tail=F)
+      pow <- pchisq(cval,d,ncp=ncpa,lower.tail=F)
+  }
+  else {
+      cval <- qchisq(1-alpha,d,ncp=ncp0,lower.tail=F)
+      pow <- 1-pchisq(cval,d,ncp=ncpa,lower.tail=F)
+  }
+  powdiff <- abs(pow-desired)
+  if (pow<desired) {
+    foo <- 1
+  }
+  if (pow>desired) {
+    foo <- -1
+  }
+}
+
+minn <- newn
+print(minn)
+
+## Recommended  sample per country - 214 to acquire a precise RMSEA between .02 and .08 (cutoff) 
+## if an effect truly exists 
+## assumption of full data/normality
+```
+
+## Monte carlo simulation using ideal samples for sensitivity analysis
+## Required per country sample size is 198 with power = .80
+## power analysis above with sample size of 214 = .83
+## Ideal per country sample size is 500 with power = .99
+```{r}
+library(pwr)
+
+# Set parameters for the simulation
+true_effect_size <- .2
+population_sd <- 1
+desired_power <- 0.80   # Desired power (e.g., 0.80 for 80% power)
+alpha <- 0.05           # Significance level
+
+# Function to perform a single simulation and calculate power
+simulate_path_analysis <- function(n) {
+  # Generate data with assumed parameters
+  x <- rnorm(n, mean = 0, sd = 1)
+  error <- rnorm(n, mean = 0, sd = population_sd)
+  y <- true_effect_size * x + error
+  
+
+  # For illustration purposes, we use pwr.t.test from the 'pwr' package to calculate power
+  power <- pwr.t.test(n = n, d = true_effect_size, sig.level = alpha, power = NULL, type = "paired")$power
+  
+  return(power)
+}
+
+# Set the number of simulations
+num_simulations <- 1000
+
+# Create a vector to store the power values from each simulation
+simulation_results <- numeric(num_simulations)
+
+# Run the Monte Carlo simulations
+for (i in 1:num_simulations) {
+  simulation_results[i] <- simulate_path_analysis(n = 500)
+}
+
+# Calculate the average power across all simulations
+average_power <- mean(simulation_results)
+
+# Find the required sample size to achieve the desired power
+required_sample_size <- uniroot(function(n) simulate_path_analysis(n) - desired_power, c(10, 10000))$root
+
+# Print the results
+cat("Average Power:", round(average_power, 3), "\n")
+cat("Required Sample Size:", round(required_sample_size), "\n")
+
+```
+
+## OpenAI API for media text analysis
+```{r}
+my_API <- "REDACTED"
+```
