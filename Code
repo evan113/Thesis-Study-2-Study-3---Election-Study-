@@ -13,6 +13,7 @@ library(ggplot2)
 library(ggpubr)
 library(PerformanceAnalytics)
 library(psych)
+library(powRICLPM)
 ```
 
 ## Power analysis for path analysis (3 groups)
@@ -135,8 +136,9 @@ cat("Required Sample Size:", round(required_sample_size), "\n")
 
 ## OpenAI API for media text analysis
 ```{r}
-my_API <- "REDACTED"
+my_API <- "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"
 ```
+
 
 ## Code for RI-CLPM (work in progress - still needs review from MW)
 #The model type we use here is Mulder and Hamaker, Ext 3 (three steps), from this page:
@@ -147,97 +149,132 @@ my_API <- "REDACTED"
 # Specify the model
 RICLPM1 <- '
     # Create between components (random intercepts)
-    SP =~ 1*SP_T1 + 1*SP_T2 + 1*SP_T3
+    SO =~ 1*SO_T1 + 1*SO_T2 + 1*SO_T3
     PPII =~ 1*PPII_T1 + 1*PPII_T2 + 1*PPII_T3
-    PE =~ 1*PE_T1 + 1*PE_T2 + 1*PE_T3
-    PAMP =~ 1*PAMP_T1 + 1*PAMP_T2 + 1*PAMP_T3
+    EA =~ 1*EA_T1 + 1*EA_T2 + 1*EA_T3
+    PMAP =~ 1*PMAP_T1 + 1*PMAP_T2 + 1*PMAP_T3
     EI =~ 1*EI_T1 + 1*EI_T2 + 1*EI_T3
 
   # Create within-person-centered variables
-wSP1 =~ 1*SP_T1
-wSP2 =~ 1*SP_T2
-wSP3 =~ 1*SP_T3
+wSO1 =~ 1*SO_T1
+wSO2 =~ 1*SO_T2
+wSO3 =~ 1*SO_T3
 wPPII1 =~ 1*PPII_T1
 wPPII2 =~ 1*PPII_T2
 wPPII3 =~ 1*PPII_T3
-wPE1 =~ 1*PE_T1
-wPE2 =~ 1*PE_T2
-wPE3 =~ 1*PE_T3
-wPAMP1 =~ 1*PAMP_T1
-wPAMP2 =~ 1*PAMP_T2
-wPAMP3 =~ 1*PAMP_T3
+wEA1 =~ 1*EA_T1
+wEA2 =~ 1*EA_T2
+wEA3 =~ 1*EA_T3
+wPMAP1 =~ 1*PMAP_T1
+wPMAP2 =~ 1*PMAP_T2
+wPMAP3 =~ 1*PMAP_T3
 wEI1 =~ 1*EI_T1
 wEI2 =~ 1*EI_T2
 wEI3 =~ 1*EI_T3
 
-  # Estimate lagged effects between within-person-centered variables
-wSP2 + wPPII2 + wPE2 + wEI2 ~ wSP1 + wPPII1 + wPE1 + wEI1
-wSP3 + wPPII3 + wPE3 + wEI3 ~ wSP2 + wPPII2 + wPE2 + wEI2
+  # Estimate lagged effects between within-person-centered variables and constraining mean effects to be equal
+wSO2 ~ ar_x1*wSO1 + ar_x2*wPPII1 + ar_x3*wEA1 + ar_x4*wPMAP1 + cl_x*wEI1
+wPPII2 ~ ar_x1*wSO1 + ar_x2*wPPII1 + ar_x3*wEA1 + ar_x4*wPMAP1 + cl_x*wEI1
+wEA2 ~ ar_x1*wSO1 + ar_x2*wPPII1 + ar_x3*wEA1 + ar_x4*wPMAP1 + cl_x*wEI1
+wPMAP2 ~ ar_x1*wSO1 + ar_x2*wPPII1 + ar_x3*wEA1 + ar_x4*wPMAP1 + cl_x*wEI1
+wEI2 ~ cl_y1*wSO1 + cl_y2*wPPII1 + cl_y3*wEA1 + cl_y4*wPMAP1 + ar_y*wEI1
+wSO3 ~ ar_x1*wSO2 + ar_x2*wPPII2 + ar_x3*wEA2 + ar_x4*wPMAP2 + cl_x*wEI2
+wPPII3 ~ ar_x1*wSO2 + ar_x2*wPPII2 + ar_x3*wEA2 + ar_x4*wPMAP2 + cl_x*wEI2
+wEA3 ~ ar_x1*wSO2 + ar_x2*wPPII2 + ar_x3*wEA2 + ar_x4*wPMAP2 + cl_x*wEI2
+wPMAP3 ~ ar_x1*wSO2 + ar_x2*wPPII2 + ar_x3*wEA2 + ar_x4*wPMAP2 + cl_x*wEI2
+wEI3 ~ cl_y1*wSO2 + cl_y2*wPPII2 + cl_y3*wEA2 + cl_y4*wPMAP2 + ar_y*wEI2
 
  # Estimate covariance between within-person variables at wave 1
-wSP1 ~~ wPPII1
-wSP1 ~~ wPE1  
-wSP1 ~~ wEI1
-wPPII1 ~~ wPE1
+wSO1 ~~ wPPII1
+wSO1 ~~ wEA1  
+wSO1 ~~ wPMAP1
+wSO1 ~~ wEI1
+wPPII1 ~~ wEA1
+wPPII1 ~~ wPMAP1
 wPPII1 ~~ wEI1
-wPE1 ~~ wEI1
+wEA1 ~~ wPMAP1
+wEA1 ~~ wEI1
+wPMAP1 ~~ wEI1
 
-# Estimate covariances between residuals of within-person centered variables at waves 2 and 3
- wSP2 ~~ wPPII2
-wSP2 ~~ wPE2  
-wSP2 ~~ wEI2
-wPPII2 ~~ wPE2
+# Estimate covariances between residuals of within-person centered variables waves 2 and 3
+wSO2 ~~ wPPII2
+wSO2 ~~ wEA2  
+wSO2 ~~ wPMAP2
+wSO2 ~~ wEI2
+wPPII2 ~~ wEA2
+wPPII2 ~~ wPMAP2
 wPPII2 ~~ wEI2
-wPE2 ~~ wEI2
-wSP3 ~~ wPPII3
-wSP3 ~~ wPE3 
-wSP3 ~~ wEI3
-wPPII3 ~~ wPE3
+wEA2 ~~ wPMAP2
+wEA2 ~~ wEI2
+wPMAP2 ~~ wEI2
+wSO3 ~~ wPPII3
+wSO3 ~~ wEA3 
+wSO3 ~~ wPMAP3
+wSO3 ~~ wEI3
+wPPII3 ~~ wEA3
+wPPII3 ~~ wPMAP3
 wPPII3 ~~ wEI3
-wPE3 ~~ wEI3
+wEA3 ~~ wPMAP3
+wEA3 ~~ wEI3
+wPMAP3 ~~ wEI3
 
   # Estimate variance and covariance of random intercepts
-SP ~~ SP
+SO ~~ SO
 PPII ~~ PPII
-PE ~~ PE
+EA ~~ EA
+PMAP ~~ PMAP
 EI ~~ EI
-SP ~~ PPII
-SP ~~ PE
-SP ~~ EI
-PPII ~~ PE
+SO ~~ PPII
+SO ~~ EA
+SO ~~ PMAP
+SO ~~ EI
+PPII ~~ EA
+PPII ~~ PMAP
 PPII ~~ EI
-PE ~~ EI
+EA ~~ PMAP
+EA ~~ EI
+PMAP ~~ EI
 
   # Estimate (residual) variance of within-person centered variables
-wSP1 ~~ wSP1
-wSP2 ~~ wSP2
-wSP3 ~~ wSP3
+wSO1 ~~ wSO1
+wSO2 ~~ wSO2
+wSO3 ~~ wSO3
 wPPII1 ~~ wPPII1
 wPPII2 ~~ wPPII2
 wPPII3 ~~ wPPII3
-wPE1 ~~ wPE1
-wPE2 ~~ wPE2
-wPE3 ~~ wPE3
+wEA1 ~~ wEA1
+wEA2 ~~ wEA2
+wEA3 ~~ wEA3
+wPMAP1 ~~ wPMAP1
+wPMAP2 ~~ wPMAP2
+wPMAP3 ~~ wPMAP3
 wEI1 ~~ wEI1
 wEI2 ~~ wEI2
 wEI3 ~~ wEI3
 '
 # Fit the model
-RICLPM1.fit <- lavaan(RICLPM1, data = dat, meanstructure = T, int.ov.free = T)
+RICLPM1.fit <- lavaan(RICLPM1, data = dat, meanstructure = T, int.ov.free = T, missing = "ML", estimator = "MLR")
 
 # Summarize the results
 summary(RICLPM.fit, fit.measures = T, standardized = T)
+
 ```
 
 ## H2 to 4B - RLCPM 2 and RLCPM 3
 ```{r}
+int_term1 = POL_T1*election_result
+int_term2 = POL_T2*election_result
+int_term3 = POL_T3*election_result
+
+
 # Specify the model
 RICLPM2 <- '
   # Measurement model
     # Create between components (random intercepts)
-  EI =~ 1*EI_T1 + 1*EI_T2 + 1*EI_T3
-  POL =~ 1*POL_T1 + 1*POL_T2 + 1*POL_T3
-  SJ =~ 1*SJ_T1 + 1*SJ_T2 + 1*SJ_T3
+ EI =~ 1*EI_T1 + 1*EI_T2 + 1*EI_T3
+ POL =~ 1*POL_T1 + 1*POL_T2 + 1*POL_T3
+ SJ =~ 1*SJ_T1 + 1*SJ_T2 + 1*SJ_T3
+ int_term = 1*int_term1 + 1*int_term2 + 1*int_term3
 
   # Create within-person-centered variables
 wEI1 =~ 1*EI_T1
@@ -246,13 +283,29 @@ wEI3 =~ 1*EI_T3
 wPOL1 =~ 1*POL_T1
 wPOL2 =~ 1*POL_T2
 wPOL3 =~ 1*POL_T3
+wINT_TERM1 =~ 1*int_term1
+wINT_TERM2 =~ 1*int_term2
+wINT_TERM3 =~ 1*int_term3
 wSJ1 =~ 1*SJ_T1
 wSJ2 =~ 1*SJ_T2
 wSJ3 =~ 1*SJ_T3
 
  # Estimate lagged effects between within-person-centered variables
- wEI2 + wPOL2 + wSJ2 ~ wEI1 + wPOL1 + wSJ1
- wEI3 + wPOL3 + wSJ3 ~ wEI2 + wPOL2 + wSJ2
+wEI2 ~ ar_x1*wEI1 + ar_x2*wPOL1 + ar_x3*wINT_TERM1 + cl_x*wSJ1  
+wPOL2 ~ ar_x1*wEI1 + ar_x2*wPOL1 + ar_x3*wINT_TERM1 + cl_x*wSJ1 
+wINT_TERM2 ~ ar_x1*wEI1 + ar_x2*wPOL1 + ar_x3*wINT_TERM1+ cl_x*wSJ1 
+wSJ2 ~ cl_y1*wEI1 + cl_y2*wPOL1 + cl_y3*wINT_TERM1 + ar_y*wSJ1  
+wEI3 ~ ar_x1*wEI2 + ar_x2*wPOL2 + ar_x3*wINT_TERM2 + cl_x*wSJ2 
+wPOL3 ~ ar_x1*wEI2 + ar_x2*wPOL2 + ar_x3*wINT_TERM2 + cl_x*wSJ2 
+wINT_TERM3 ~ ar_x1*wEI2 + ar_x2*wPOL2 + ar_x3*wINT_TERM2 + cl_x*wSJ2 
+wSJ3 ~ cl_y1*wEI2 + cl_y2*wPOL2 +cl_y3*wINT_TERM2 + ar_y*wSJ2 
+
+# Estimate lagged mediation effects between within-person variables
+cl_y2 ~ a*cl_y1
+cl_y ~ b*cl_x2*cl_y3 + c*cl_y1
+# Indirect and total effects
+ab:= a*b
+total:= ab+c
 
 # Estimate covariance between within-person variables at wave 1
 wEI1 ~~ wPOL1
@@ -274,6 +327,9 @@ wEI3 ~~ wEI3
 wPOL1 ~~ wPOL1
 wPOL2 ~~ wPOL2
 wPOL3 ~~ wPOL3
+wINT_TERM1 ~~ wINT_TERM1
+wINT_TERM2 ~~ wINT_TERM2
+wINT_TERM3 ~~ wINT_TERM3
 wSJ1 ~~ wSJ1
 wSJ2 ~~ wSJ2
 wSJ3 ~~ wSJ3
@@ -281,28 +337,15 @@ wSJ3 ~~ wSJ3
 # Estimate (residual) variance of random intercepts of endogenous variables
 EI ~~ EI
 POL ~~ POL
+int_term~~int_term
 SJ ~~ SJ
 
-# IV -> M (MEDIATOR - A PATH)
-POL ~ a*EI
-
-# M (MEDIATOR - B PATH) -> DV
-SJ ~ b*POL
-
-# IV - DV (Direct effect)
-SJ ~ c*EI
-
-# Moderation effect (interaction) between mediator and DV
-    SJ ~ d*POL * election_result       ## time invariant dichotomous moderator
-
-#Indirect effect
-ind1 := a*b+d 
-
  # Define observed variables
- EI_T1 + EI_T2 + EI_T3 + POL_T1 + POL_T2 + POL_T3 + SJ_T1 + SJ_T2 + SJ_T3 + election_result
+EI_T1 + EI_T2 + EI_T3 + POL_T1 + POL_T2 + POL_T3 + int_term1 + int_term2 + int_term3 + SJ_T1 + SJ_T2 + SJ_T3 
 '
+
 # Fit the model
-RICLPM2.fit <- sem(RICLPM2, data = dat, se = "boot", bootstrap = 1000)
+RICLPM2.fit <- sem(RICLPM2, data = dat, se = "boot", bootstrap = 1000, estimator = "MLR" ,missing = "ML")
 
 # Summarize the results
 summary(RICLPM2.fit, fit = T, standardized = T)
@@ -329,8 +372,19 @@ wSJ2 =~ 1*SJ_T2
 wSJ3 =~ 1*SJ_T3
 
 # Estimate lagged effects between within-person-centered variables
- wEI2 + wEA2 + wSJ2 ~ wEI1 + wEA1 + wSJ1
- wEI3 + wEA3 + wSJ3 ~ wEI2 + wEA2 + wSJ2
+wEI2 ~ ar_x1*wEI1 + ar_x2*wEA1 + cl_x*wSJ1
+wEA2 ~ ar_x1*wEI1 + ar_x2*wEA1 + cl_x*wSJ1
+wSJ2 ~ cl_y1*wEI1 + cl_y2*wEA1 + ar_y*wSJ1
+wEI3 ~ ar_x1*wEI2 + ar_x2*wEA2 + cl_x*wSJ2
+wEA3 ~ ar_x1*wEI2 + ar_x2*wEA2 + cl_x*wSJ2
+wSJ3 ~ cl_y1*wEI2 + cl_y2*wEA2 + ar_y*wSJ2
+
+# Estimate lagged mediation effects between within-person variables 
+cl_y2 ~ a*cl_y1
+cl_y ~ b*cl_y2 + c*cl_y1
+# Indirect and total effects
+ab:= a*b
+total:= ab+c
 
 # Estimate covariance between within-person variables at wave 1
 wEI1 ~~ wEA1
@@ -361,24 +415,12 @@ EI ~~ EI
 EA ~~ EA
 SJ ~~ SJ
 
-# IV -> M (MEDIATOR - A PATH)
-EA ~ a*EI
-
-# M (MEDIATOR - B PATH) -> DV
-SJ ~ b*EA
-
-# IV - DV (Direct effect)
-SJ ~ c*EI
-
-#Indirect effect
-ind1 := a*b 
-
  # Define observed variables
  EI_T1 + EI_T2 + EI_T3 + EA_T1 + EA_T2 + EA_T3 + SJ_T1 + SJ_T2 + SJ_T3
- '
+'
 
 # Fit the model
-RICLPM3.fit <- sem(RICLPM3, data = dat, se = "boot", bootstrap = 1000)
+RICLPM3.fit <- sem(RICLPM3, data = dat, se = "boot", bootstrap = 1000, missing = "ML", estimator = "MLR")
 
 # Summarize the results
 summary(RICLPM3.fit, fit = T, standardized = T)
@@ -410,8 +452,24 @@ wGCM2 =~ 1*GCM_T2
 wGCM3 =~ 1*GCM_T3
 
 # Estimate lagged effects between within-person-centered variables
- wSJ2 + wST2 + wGD2 + wGCM2 ~  wSJ1 + wST1 + wGD1 + wGCM1
- wSJ3 + wST3 + wGD3 + wGCM3 ~ wSJ2 + wST2 + wGD2 + wGCM2
+ wSJ2 ~ ar_x1*wSJ1 + ar_y2*wST1 + ar_x3*wGD1 + cl_x*wGCM1
+wST2 ~ ar_x1*wSJ1 + ar_y2*wST1 + ar_x3*wGD1 + cl_x*wGCM1
+wGD2 ~ ar_x1*wSJ1 + ar_y2*wST1 + ar_x3*wGD1 + cl_x*wGCM1
+wGCM2 ~  cl_y1*wSJ1 + cl_y2*wST1 + cl_y3*wGD1 + ar_y*wGCM1
+wSJ3 ~ ar_x1*wSJ2 + ar_y2*wST2 + ar_x3*wGD2 + cl_x*wGCM2
+wST3 ~ ar_x1*wSJ2 + ar_y2*wST2 + ar_x3*wGD2 + cl_x*wGCM2
+wGD3 ~ ar_x1*wSJ2 + ar_y2*wST2 + ar_x3*wGD2 + cl_x*wGCM2
+wGCM3 ~  cl_y1*wSJ2 + cl_y2*wST2 + cl_y3*wGD2 + ar_y*wGCM2
+
+## Estimate lagged effect between between-person variables
+cl_y2 ~ a*cl_y1
+cl_y ~ b*cl_y2 + f*cl_y3  + c*cl_y1
+cl_y3 ~ d*cl_y1
+## Direct and indirect effects
+ab:=a*b
+total1:= ab+c
+df:=d*f
+total2:=df+c
 
 # Estimate covariance between within-person variables at wave 1
 wSJ1 ~~ wST1
@@ -455,31 +513,12 @@ ST ~~ ST
 GD ~~ GD
 GCM ~~ GCM
 
-# IV -> M (MEDIATOR 1 - A PATH)
-ST ~ a*SJ
-
-# M (MEDIATOR 1 - B PATH) -> DV
-GCM ~ b*ST
-
-# IV -> M (MEDIATOR 2 - D PATH)
-GD ~ d*SJ
-
-# M (MEDIATOR 2 - F PATH) - DV
-GCM ~ GD
-
-# IV - DV (Direct effect)
-GCM ~ c*SJ
-
-#Indirect effects (1 and 2)
-ind1 := a*b 
-ind2 := d*f
-
 # Define observed variables
  SJ_T1 + SJ_T2 + SJ_T3 + ST_T1 + ST_T2 + ST_T3 + GD_T1 + GD_T2 + GD_T3 + GCM_T1 + GCM_T2 + GCM_T3
 '
 
 # Fit the model
-RICLPM4.fit <- sem(RICLPM4, data = dat, se = "boot", bootstrap = 1000)
+RICLPM4.fit <- sem(RICLPM4, data = dat, se = "boot", bootstrap = 1000, missing = "ML", estimator = "MLR")
 
 # Summarize the results
 summary(RICLPM4.fit, fit = T, standardized = T)
@@ -487,64 +526,76 @@ summary(RICLPM4.fit, fit = T, standardized = T)
 
 ## H6 - RLCPM 5
 ```{r}
+int_term1 = GCM_T1*PPMP_T1
+int_term2 = GCM_T2*PPMP_T2
+int_term3 = GCM_T3*PPMP_T3
+
+
 # Specify the model
 RICLPM5 <- '
     # Create between components (random intercepts)
   GCM =~ 1*GCM_T1 + 1*GCM_T2 + 1*GCM_T3
   CCB =~ 1*CCB_T1 + 1*CCB_T2 + 1*CCB_T3
-  PPMU =~ 1*PPMU_T1 + 1*PPMU_T2 + 1*PPMU_T3 
+  PPMP =~ 1*PPMP_T1 + 1*PPMP_T2 + 1*PPMP_T3 
+  int_term =~ 1*int_term1 + 1*int_term2 + 1*int_term3
 
 # Create within-person-centered variables including moderation for within differences
 wGCM1 =~ 1*GCM_T1
 wGCM2 =~ 1*GCM_T2
 wGCM3 =~ 1*GCM_T3
+wPPMP1 =~ 1*PPMP_T1
+wPPMP2 =~ 1*PPMP_T2
+wPPMP3 =~ 1*PPMP_T3
+wINT_TERM1 =~ 1*int_term1
+wINT_TERM2 =~ 1*int_term2
+wINT_TERM3 =~ 1*int_term3
 wCCB1 =~ 1*CCB_T1
 wCCB2 =~ 1*CCB_T2
 wCCB3 =~ 1*CCB_T3
-wPPMU1 =~ 1*PPMU_T1
-wPPMU2 =~ 1*PPMU_T2
-wPPMU3 =~ 1*PPMU_T3
-
-# Interaction terms
-int_term1 =~ wGCM1*wPPMU1
-int_term2 =~ wPPMU1*wCCB1
-int_term3 =~ wPPMU2*wCCB2
-int_term4 =~ wGCM2*wPPMU2
 
 # Modify the lagged effects to include the interaction terms
-wGCM2 + wCCB2 + wPPMU2 ~  wGCM1 + wCCB1 + wPPMU1 + int_term1 + int_term2 
-wGCM3 + wCCB3 + wPPMU3 ~  wGCM2 + wCCB2 + wPPMU2  + int_term3 + int_term4  
-
+wGCM2 ~ ar_x1*wGCM1 + ar_x2*wPPMP1 + ar_x3*wINT_TERM1 + cl_x*wCCB1
+wPPMP2 ~ ar_x1*wGCM1 + ar_x2*wPPMP1 + ar_x3*wINT_TERM1 + cl_x*wCCB1
+wINT_TERM2 ~ ar_x1*wGCM1 + ar_x2*wPPMP1 + ar_x3*wINT_TERM1 + cl_x*wCCB1
+wCCB2 ~ cl_y1*wGCM1 + ar_y2*wPPMP1 + cl_y3*wINT_TERM1 + ar_y*wCCB1
+wGCM3 ~ ar_x1*wGCM2 + ar_x2*wPPMP2 + ar_x3*wINT_TERM2 + cl_x*wCCB2
+wPPMP3  ~ ar_x1*wGCM2 + ar_x2*wPPMP2 + ar_x3*wINT_TERM2 + cl_x*wCCB2
+wINT_TERM3 ~ ar_x1*wGCM2 + ar_x2*wPPMP2 + ar_x3*wINT_TERM2 + cl_x*wCCB2
+wCCB3 ~ cl_y1*wGCM2 + ar_y2*wPPMP2 + cl_y3*wINT_TERM2 + ar_y*wCCB2
+ 
 # Estimate covariance between within-person variables at wave 1
 wGCM1 ~~ wCCB1
-wGCM1 ~~ wPPMU1
 
 # Estimate covariances between residuals of within-person-centered variables (wave 2 & 3)
 wGCM2 ~~ wCCB2
-wGCM2 ~~ wPPMU2
 wGCM3 ~~ wCCB3
-wGCM3 ~~ wPPMU3
 
 # Estimate (residual) variance of within-person centered variables
 wGCM1 ~~ wGCM1
 wGCM2 ~~ wGCM2
 wGCM3 ~~ wGCM3
+wPPMP1 ~~ wPPMP1
+wPPMP2 ~~ wPPMP2
+wPPMP3 ~~ wPPMP3
+wINT_TERM1 ~~ wINT_TERM1
+wINT_TERM2 ~~ wINT_TERM2
+wINT_TERM3 ~~ wINT_TERM3
 wCCB1 ~~ wCCB1
 wCCB2 ~~ wCCB2
 wCCB3 ~~ wCCB3
-wPPMU1 ~~ wPPMU1
-wPPMU2 ~~ wPPMU2
-wPPMU3 ~~ wPPMU3
 
 # Estimate (residual) variance of random intercepts of endogenous variables
 GCM ~~ GCM
+PPMP ~~ PPMP
+int_term ~~ int_term
 CCB ~~ CCB
-PPMU ~~ PPMU
 '
 
 # Fit the model
-RICLPM5.fit <- lavaan(RICLPM5, data = dat, meanstructure = T, int.ov.free = T)
+RICLPM5.fit <- lavaan(RICLPM5, data = dat, meanstructure = T, int.ov.free = T, missing = "ML", Estimator = "MLR")
 
 # Summarize the results
+summary(RICLPM5.fit, fit.measures = T, standardized = T)
+```
 summary(RICLPM5.fit, fit.measures = T, standardized = T)
 ```
