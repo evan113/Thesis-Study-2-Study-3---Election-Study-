@@ -136,7 +136,7 @@ cat("Required Sample Size:", round(required_sample_size), "\n")
 
 ## OpenAI API for media text analysis
 ```{r}
-my_API <- "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"
+my_API <- "Anon"
 ```
 
 
