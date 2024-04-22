@@ -1,4 +1,4 @@
-# Thesis-Study-2-Study-3---Election-Study-
+# Thesis-Study-2--NZ Election-Study-
 
 I intend on investigating the underlying mechanisms that enable individuals to transition from wanting to justify, rationalize, and legitimize certain
 social and political systems to challenging and even rebelling against those very systems. Through the supervision of my three Ph.D. supervisors
